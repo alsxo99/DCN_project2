@@ -1,12 +1,12 @@
-import scipy.stats as stats 
-import scipy.stats as stats 
+import scipy.stats as stats
 
 # Default variables
 PKT_SIZE = int(1450)
 PKT_NUMS = int(2000)
 PROP_TIME = int(10)
-START_TIME = 0 
+START_TIME = 0
 END_TIME = 5
+
 
 def transmit(t, size, channel, remained):
     # current available bandwidth (remained bw from prev time + current bw)
@@ -20,7 +20,7 @@ def transmit(t, size, channel, remained):
 
     # if current bw is not sufficient
     while num_packets < 1:
-        if time == int(END_TIME*1000) - 1: # ms
+        if time == int(END_TIME * 1000) - 1:  # ms
             break
         time += 1
         bw = remained_bw + channel.bw[time]
@@ -29,29 +29,32 @@ def transmit(t, size, channel, remained):
 
     return time - t + 1, num_packets, remained_bw
 
+
 class Channel():
     def __init__(self, bandwidth):
         self.bw = bandwidth
-        self.prop = PROP_TIME # ms
+        self.prop = PROP_TIME  # ms
+
 
 class Packet():
     def __init__(self, seq, size):
         # TCP header used in this simulation
         self.src = ""
         self.dst = ""
-        self.seq = seq # sequence number of this packets
-        self.ack_seq = 0 # ack sequence
-        
+        self.seq = seq  # sequence number of this packets
+        self.ack_seq = 0  # ack sequence
+
         # used for only simulation, not offical header
-        self.start_time = 0 # send start time 
-        self.ack_arrival = 0 # ack arrival time
-        self.bs_arrival = 0 # bs arrival time
-        self.recv_arrival = 0 # receiver arrival time
+        self.start_time = 0  # send start time
+        self.ack_arrival = 0  # ack arrival time
+        self.bs_arrival = 0  # bs arrival time
+        self.recv_arrival = 0  # receiver arrival time
 
         ################ IMPLEMENT ##################### 
         # define your own observed data here if needed #
 
         ################################################
+
 
 class BaseStation():
     def __init__(self, name, threshold):
@@ -59,10 +62,11 @@ class BaseStation():
         self.queue_length = threshold
         self.queued = []
         self.next_available = 0
-        self.remained_bw = 0 # available bw from prev timestep
-        
+        self.remained_bw = 0  # available bw from prev timestep
+
     def admit(self, t, pkts, downlink):
-        loss = []; admit = []
+        loss = [];
+        admit = []
 
         if self.next_available != 0 and self.next_available > t:
             # drop or queue
@@ -87,46 +91,47 @@ class BaseStation():
                 # exit if list is empty
                 if len(self.queued) == 0:
                     break
-                
+
         # drop or queue
         for p in pkts:
-            if len(self.queued) >=  self.queue_length:
+            if len(self.queued) >= self.queue_length:
                 loss.append(p)
             else:
                 self.queued.append(p)
-        
-        
+
         return admit, loss
+
 
 class Client():
     def __init__(self, src, dst, bandwidth, pkt_list=[], cc=False):
-        self.src = src; self.dst = dst; self.cc = cc
+        self.src = src;
+        self.dst = dst;
+        self.cc = cc
 
         # variables for senders
-        self.pkt_list = pkt_list # packet list for sending
-        self.tx_start = 0; # pointer for first transmitted packet (tx_window)
-        self.seq = 0 # pointer for next packet sequence (tx_window)
-        self.next_available = 0
+        self.pkt_list = pkt_list  # packet list for sending
+        self.tx_start = 0;  # pointer for first transmitted packet (tx_window)
+        self.seq = 0  # pointer for next packet sequence (tx_window), 보낸 packet의 수
+        self.next_available = 0 # time 에 관한 변수
         self.remained_bw = 0
-        
+
         # variables for clients
         self.channel = Channel(bandwidth)
-        
+
         # variables for receivers
-        self.ack_sequence = -1 # init
+        self.ack_sequence = -1  # init, 받은 packet의 수
         self.retx = 0
-        
+
         ############################### IMPLEMENT ##############################################
-        # implement your own ongestion control with parameters!
+        # implement your own  congestion control with parameters!
         # note 1: you can use any variable from Packet() class
         # note 2: you may add additional variable into PACKET() class
-        # note 3: you can use any addtional parameter for congestion control e.g. avgRTT, etc.
+        # note 3: you can use any additional parameter for congestion control e.g. avgRTT, etc.
         # note 4: you can adjust the current init values 
         ########################################################################################
-        self.avgRTT = 4 * PROP_TIME # RTT for 2 * (uplink.prop + downlink.prop) 
-        self.cwnd = 4 # init value
+        self.avgRTT = 4 * PROP_TIME  # RTT for 2 * (uplink.prop + downlink.prop)
+        self.cwnd = 4  # init value
         # self.estimatedRTT = 0
-    
 
     ############## IMPLEMENT ###############################
     # implement the send function of sender!
@@ -136,20 +141,20 @@ class Client():
     def send(self, t):
         # transmission is busy
         if t < self.next_available:
-            return [] # empty list
-        
+            return []  # empty list
+
         # transmission done
         if self.seq == PKT_NUMS:
-            return [] # empty list
-        
-        # packets to transmit
+            return []  # empty list
+
+        # packets to transmit ( packets transmitted done? )
         pkts = []
 
         # next packet pointer init
         next_seq = 0
-        
+
         # without congestion control: send packets with max bandwidth
-        if (self.cc == False):
+        if self.cc == False:
             tx_time, num_packets, remained_bw = transmit(t, PKT_SIZE, self.channel, self.remained_bw)
             self.remained_bw = remained_bw
 
@@ -160,25 +165,36 @@ class Client():
                 self.seq += 1
                 if self.seq == PKT_NUMS:
                     break
-            
+
             # next available transmit
-            self.next_available = t + tx_time # ms
+            self.next_available = t + tx_time  # ms
         ############### IMPLEMENT #####################################
         # with congestion control: send packets with cwnd
         # implement your send function with congestion control! (cwnd)
         ###############################################################
-        # if (self.cc == True):
-        
-        
-        
+        if self.cc == True:
+            # if inflight packet # >= cwnd,
+            if self.seq - (self.ack_sequence + 1) >= self.cwnd:
+                return []
+            else:
+                tx_time, num_packets, remained_bw = transmit(t, PKT_SIZE, self.channel, self.remained_bw)
+                self.remained_bw = remained_bw
+
+                for i in range(0, num_packets):
+                    self.pkt_list[self.seq].start_time = t
+                    self.pkt_list[self.seq].bs_arrival = t + tx_time + PROP_TIME
+                    pkts.append(self.pkt_list[self.seq])
+                    self.seq += 1
+                    if self.seq == PKT_NUMS:
+                        break
+
+                self.next_available += t + tx_time
+
+
         ###############################################################
-
-
-
 
         # return packet lists
         return pkts
-
 
     #################### IMPLEMENT recv() #######################
     # naive TCP ack generation is followed  
@@ -189,14 +205,13 @@ class Client():
     #############################################################
     def recv(self, t, pkts):
         if len(pkts) == 0:
-            return False # no acks
-        
+            return False  # no acks
+
         # generate ack packet
         # cumulative ack send only one acknowledgement
         ack = Packet()
 
         # implement here #
-
 
         # return ack
         return ack
@@ -210,11 +225,11 @@ class Client():
 
         if ack == False:
             return False
-        
+
         # return true if all the packets are transmitted to receiver
         if ack.ack_seq == PKT_NUMS:
             return True
-        
+
         # without congestion control, simply measure avgRTT
         if self.cc == False:
             ack_seq = ack.ack_seq
@@ -226,9 +241,9 @@ class Client():
 
             if acked_packets:
                 self.avgRTT = int(sum / acked_packets)
-            
+
             self.tx_start = ack_seq
-            
+
             return False
 
         ########## IMPLEMENT ####################
@@ -240,12 +255,12 @@ class Client():
             sum = 0
             for i in range(self.tx_start, ack_seq):
                 sum += ack.ack_arrival - ack.start_time
-                
+
             acked_packets = ack_seq - self.tx_start
-            
+
             if acked_packets:
                 self.avgRTT = int(sum / acked_packets)
-            
+
             # parameter for cwnd
             AIMD_increase = 2
             AIMD_decrease = 4
@@ -253,13 +268,13 @@ class Client():
             # get acknowledge packets
             next_tx_seq = self.seq
             ack_seq = ack.ack_seq
-        
+
             if next_tx_seq != ack_seq:
                 loss = True
-            
+
             # AIMD congestion control
             if loss == True:
-                self.cwnd = int(max(2, int(self.cwnd/AIMD_decrease)))
+                self.cwnd = int(max(2, int(self.cwnd / AIMD_decrease)))
             else:
                 self.cwnd += AIMD_increase
 
@@ -269,4 +284,3 @@ class Client():
             self.seq = ack_seq
 
         return False
-
