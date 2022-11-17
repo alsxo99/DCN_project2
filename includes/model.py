@@ -10,7 +10,8 @@ END_TIME = 5
 
 def transmit(t, size, channel, remained):
     # current available bandwidth (remained bw from prev time + current bw)
-    pkt_size = size; time = t
+    pkt_size = size
+    time = t
     bw = remained + channel.bw[time]
     num_packets = 0
 
@@ -112,7 +113,7 @@ class Client():
         self.pkt_list = pkt_list  # packet list for sending
         self.tx_start = 0;  # pointer for first transmitted packet (tx_window)
         self.seq = 0  # pointer for next packet sequence (tx_window), 보낸 packet의 수
-        self.next_available = 0 # time 에 관한 변수
+        self.next_available = 0  # time 에 관한 변수
         self.remained_bw = 0
 
         # variables for clients
@@ -174,22 +175,21 @@ class Client():
         ###############################################################
         if self.cc == True:
             # if inflight packet # >= cwnd,
-            if self.seq - (self.ack_sequence + 1) >= self.cwnd:
+            if self.seq - self.tx_start >= self.cwnd:
                 return []
-            else:
-                tx_time, num_packets, remained_bw = transmit(t, PKT_SIZE, self.channel, self.remained_bw)
-                self.remained_bw = remained_bw
 
-                for i in range(0, num_packets):
-                    self.pkt_list[self.seq].start_time = t
-                    self.pkt_list[self.seq].bs_arrival = t + tx_time + PROP_TIME
-                    pkts.append(self.pkt_list[self.seq])
-                    self.seq += 1
-                    if self.seq == PKT_NUMS:
-                        break
+            tx_time, num_packets, remained_bw = transmit(t, PKT_SIZE, self.channel, self.remained_bw)
+            self.remained_bw = remained_bw
 
-                self.next_available += t + tx_time
+            for i in range(0, num_packets):
+                self.pkt_list[self.seq].start_time = t
+                self.pkt_list[self.seq].bs_arrival = t + tx_time + PROP_TIME
+                pkts.append(self.pkt_list[self.seq])
+                self.seq += 1
+                if self.seq == PKT_NUMS:
+                    break
 
+            self.next_available = t + tx_time
 
         ###############################################################
 
@@ -209,9 +209,19 @@ class Client():
 
         # generate ack packet
         # cumulative ack send only one acknowledgement
-        ack = Packet()
-
+        ack = Packet(0, PKT_SIZE)
+        arrival_time = pkts[0].recv_arrival
+        start_time = pkts[0].start_time
         # implement here #
+        for i in range(0, len(pkts)):
+            if self.ack_sequence + 1 == pkts[i].seq:
+                self.ack_sequence += 1
+            else:
+                self.retx += 1
+
+        ack.start_time = start_time
+        ack.ack_seq = self.ack_sequence + 1
+        ack.ack_arrival = arrival_time + 2 * PROP_TIME
 
         # return ack
         return ack
@@ -221,6 +231,7 @@ class Client():
     # implement your own congestion control using the ack packet!
     ###################################################################
     def congestion_control(self, t, ack):
+
         loss = False
 
         if ack == False:

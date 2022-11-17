@@ -32,16 +32,21 @@ def plot_gamma():
     # implement gamma function and plot!
     # shape = alpha, scale = beta
     # gamma(shape, loc, scale).pdf(x)
-    link1 = stats.gamma(3, 0, 1).pdf(time_slice)
-    link2 = stats.gamma(3.5, 0, 2).pdf(time_slice)
+    y1 = stats.gamma(2, 0, 2).pdf(time_slice)
+    y2 = stats.gamma(2, 0, 1).pdf(time_slice)
+    y3 = stats.gamma(4, 0, 2).pdf(time_slice)
+    y4 = stats.gamma(6, 0, 2).pdf(time_slice)
 
-    plt.figure(figsize=(10, 8))
-    plt.plot(time_slice, link1, 'r')
-    plt.plot(time_slice, link2, 'r')
+    plt.plot(time_slice, y1, 'b', label='a=2, b=2')
+    plt.plot(time_slice, y2, 'orange', label='a=2, b=1')
+    plt.plot(time_slice, y3, 'green', label='a=4, b=2')
+    plt.plot(time_slice, y4, 'r', label='a=6, b=2')
     plt.xlabel('time')
     plt.ylabel('bandwidth')
     plt.grid()
     plt.title('Gamma Distribution of bandwidth')
+
+    plt.legend()
     plt.show()
 
 
