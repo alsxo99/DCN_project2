@@ -53,7 +53,6 @@ class Packet():
 
         ################ IMPLEMENT ##################### 
         # define your own observed data here if needed #
-
         ################################################
 
 
@@ -115,9 +114,7 @@ class Client():
         self.seq = 0  # pointer for next packet sequence (tx_window), 보낸 packet의 수
         self.next_available = 0  # time 에 관한 변수
         self.remained_bw = 0
-        self.duplicate_ack = 0
         self.count = 0
-        self.wait = False
         # variables for clients
         self.channel = Channel(bandwidth)
 
@@ -150,8 +147,6 @@ class Client():
         if self.seq == PKT_NUMS:
             return []  # empty list
 
-        if self.wait:
-            return []
         # packets to transmit ( packets transmitted done? )
         pkts = []
 
@@ -185,7 +180,7 @@ class Client():
             tx_time, num_packets, remained_bw = transmit(t, PKT_SIZE, self.channel, self.remained_bw)
             self.remained_bw = remained_bw
 
-            for i in range(0, num_packets):
+            for i in range(0, min(int(num_packets), self.tx_start + self.cwnd - self.seq)):
                 self.pkt_list[self.seq].start_time = t
                 self.pkt_list[self.seq].bs_arrival = t + tx_time + PROP_TIME
                 pkts.append(self.pkt_list[self.seq])
@@ -291,36 +286,33 @@ class Client():
             if next_tx_seq != ack_seq:
                 loss = True
 
-            # real loss or fake loss(waiting at bs)
+            # real loss or fake loss(waiting at bs queue)
             if loss == True:
                 # duplicate Ack but not real loss yet, may be real loss
-                if self.duplicate_ack == ack_seq:
+                if self.tx_start == ack_seq:
                     self.count += 1
                     if self.count != retx_thresh:
                         self.tx_start = ack_seq
-                        self.wait = True
+                        self.cwnd = 1
                         return False
 
                 # no duplicate Ack, case of fake loss
                 else:
-                    self.duplicate_ack = ack_seq
                     self.tx_start = ack_seq
+                    self.cwnd = 1
                     self.count = 1
-                    self.wait = True
                     return False
                 # real loss
                 if self.count == retx_thresh:
-                    self.cwnd = max(4, int(self.cwnd / my_decrease))
+                    self.cwnd = 1
             # success
             else:
-                self.cwnd += 2
+                self.cwnd += 10
             # success or real loss
             # remove ack packets from tx_window
             # restart from unacked packets
 
             self.tx_start = ack_seq
             self.seq = ack_seq
-            self.duplicate_ack = ack_seq
             self.count = 1
-            self.wait = False
         return False
