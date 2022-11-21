@@ -115,8 +115,9 @@ class Client():
         self.seq = 0  # pointer for next packet sequence (tx_window), 보낸 packet의 수
         self.next_available = 0  # time 에 관한 변수
         self.remained_bw = 0
-        self.transmitted = False  # to ignore dup ack
-
+        self.duplicate_ack = 0
+        self.count = 0
+        self.wait = False
         # variables for clients
         self.channel = Channel(bandwidth)
 
@@ -133,7 +134,6 @@ class Client():
         ########################################################################################
         self.avgRTT = 4 * PROP_TIME  # RTT for 2 * (uplink.prop + downlink.prop)
         self.cwnd = 4  # init value
-        self.SS_thresh = 20  # init value
         # self.estimatedRTT = 0
 
     ############## IMPLEMENT ###############################
@@ -150,10 +150,8 @@ class Client():
         if self.seq == PKT_NUMS:
             return []  # empty list
 
-        # ignore duplicate acks
-        if self.transmitted:
+        if self.wait:
             return []
-
         # packets to transmit ( packets transmitted done? )
         pkts = []
 
@@ -238,20 +236,17 @@ class Client():
     ###################################################################
     def congestion_control(self, t, ack):
 
+
         loss = False
 
         if ack == False:
             return False
 
+        print(ack.ack_seq)
+
         # return true if all the packets are transmitted to receiver
         if ack.ack_seq == PKT_NUMS:
             return True
-
-        # ignore duplicate acks
-        # 네 packet 다 loss가 날 경우, 문제가 되나?
-        if self.tx_start == ack.ack_seq:
-            self.transmitted = True
-            return False
 
         # without congestion control, simply measure avgRTT
         if self.cc == False:
@@ -266,7 +261,6 @@ class Client():
                 self.avgRTT = int(sum / acked_packets)
 
             self.tx_start = ack_seq
-            self.transmitted = False
 
             return False
 
@@ -287,7 +281,8 @@ class Client():
                 self.avgRTT = int(sum / acked_packets)
 
             # parameter for cwnd
-            RENO_decrease = 4
+            my_decrease = 2
+            retx_thresh = 3
 
             # get acknowledge packets
             next_tx_seq = self.seq
@@ -296,20 +291,36 @@ class Client():
             if next_tx_seq != ack_seq:
                 loss = True
 
-            # AIMD congestion control
+            # real loss or fake loss(waiting at bs)
             if loss == True:
-                self.cwnd = int(max(2, int(self.cwnd / RENO_decrease)))
-            else:
-                if self.cwnd >= self.SS_thresh:
-                    self.cwnd += 1
-                else:
-                    self.cwnd *= 2
+                # duplicate Ack but not real loss yet, may be real loss
+                if self.duplicate_ack == ack_seq:
+                    self.count += 1
+                    if self.count != retx_thresh:
+                        self.tx_start = ack_seq
+                        self.wait = True
+                        return False
 
+                # no duplicate Ack, case of fake loss
+                else:
+                    self.duplicate_ack = ack_seq
+                    self.tx_start = ack_seq
+                    self.count = 1
+                    self.wait = True
+                    return False
+                # real loss
+                if self.count == retx_thresh:
+                    self.cwnd = max(4, int(self.cwnd / my_decrease))
+            # success
+            else:
+                self.cwnd += 2
+            # success or real loss
             # remove ack packets from tx_window
             # restart from unacked packets
 
             self.tx_start = ack_seq
             self.seq = ack_seq
-            self.transmitted = False
-
+            self.duplicate_ack = ack_seq
+            self.count = 1
+            self.wait = False
         return False
