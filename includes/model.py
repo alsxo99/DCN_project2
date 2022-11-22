@@ -276,7 +276,6 @@ class Client():
                 self.avgRTT = int(sum / acked_packets)
 
             # parameter for cwnd
-            my_decrease = 4
             retx_thresh = 3
             AIMD_increase = 2
             AIMD_decrease = 4
@@ -299,6 +298,28 @@ class Client():
             # self.tx_start = ack_seq
             # self.seq = ack_seq
 
+        #     # congestion control ver2. to fix retransmit at case 2
+        #     if loss == True:
+        #         # dup Ack
+        #         if self.tx_start == ack_seq:
+        #             self.cwnd = 1
+        #         # no duplicate Ack, case of fake loss
+        #         else:
+        #             self.tx_start = ack_seq
+        #             self.cwnd += 1
+        #             return False
+        #     # success
+        #     else:
+        #         self.cwnd += 1
+        #     # success or real loss
+        #     # remove ack packets from tx_window
+        #     # restart from unacked packets
+        #
+        #     self.tx_start = ack_seq
+        #     self.seq = ack_seq
+        # return False
+
+            # My congestion control
             # real loss or fake loss(waiting at bs queue)
             if loss == True:
                 # dup Ack
@@ -306,17 +327,16 @@ class Client():
                     self.count += 1
                     # duplicate Ack but not real loss yet, may be real loss
                     if self.count < retx_thresh:
-                        self.tx_start = ack_seq
                         self.cwnd = 1
                         return False
                     # real loss
                     if self.count == retx_thresh:
-                        self.cwnd = 0
+                        self.cwnd = 1
                 # no duplicate Ack, case of fake loss
                 else:
                     self.tx_start = ack_seq
                     self.count = 1
-                    if ack_seq % 15 == 0:
+                    if self.seq % 15 == 0:
                         self.cwnd += 1
                     return False
             # success
