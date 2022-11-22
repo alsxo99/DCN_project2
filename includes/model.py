@@ -301,13 +301,17 @@ class Client():
 
             # real loss or fake loss(waiting at bs queue)
             if loss == True:
-                # duplicate Ack but not real loss yet, may be real loss
+                # dup Ack
                 if self.tx_start == ack_seq:
                     self.count += 1
+                    # duplicate Ack but not real loss yet, may be real loss
                     if self.count < retx_thresh:
                         self.tx_start = ack_seq
                         self.cwnd = 1
                         return False
+                    # real loss
+                    if self.count == retx_thresh:
+                        self.cwnd = 0
                 # no duplicate Ack, case of fake loss
                 else:
                     self.tx_start = ack_seq
@@ -315,9 +319,6 @@ class Client():
                     if ack_seq % 15 == 0:
                         self.cwnd += 1
                     return False
-                # real loss
-                if self.count == retx_thresh:
-                    self.cwnd = 0
             # success
             else:
                 self.cwnd += 1
