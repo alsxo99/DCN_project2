@@ -237,7 +237,7 @@ class Client():
         if ack == False:
             return False
 
-        print(ack.ack_seq)
+        #print(ack.ack_seq)
 
         # return true if all the packets are transmitted to receiver
         if ack.ack_seq == PKT_NUMS:
@@ -276,8 +276,10 @@ class Client():
                 self.avgRTT = int(sum / acked_packets)
 
             # parameter for cwnd
-            my_decrease = 2
+            my_decrease = 4
             retx_thresh = 3
+            AIMD_increase = 2
+            AIMD_decrease = 4
 
             # get acknowledge packets
             next_tx_seq = self.seq
@@ -286,28 +288,39 @@ class Client():
             if next_tx_seq != ack_seq:
                 loss = True
 
+            # # AIMD congestion control
+            # if loss == True:
+            #     self.cwnd = int(max(2, int(self.cwnd / AIMD_decrease)))
+            # else:
+            #     self.cwnd += AIMD_increase
+            #
+            # # remove ack packets from tx_window
+            # # restart from unacked packets
+            # self.tx_start = ack_seq
+            # self.seq = ack_seq
+
             # real loss or fake loss(waiting at bs queue)
             if loss == True:
                 # duplicate Ack but not real loss yet, may be real loss
                 if self.tx_start == ack_seq:
                     self.count += 1
-                    if self.count != retx_thresh:
+                    if self.count < retx_thresh:
                         self.tx_start = ack_seq
                         self.cwnd = 1
                         return False
-
                 # no duplicate Ack, case of fake loss
                 else:
                     self.tx_start = ack_seq
-                    self.cwnd = 1
                     self.count = 1
+                    if ack_seq % 15 == 0:
+                        self.cwnd += 1
                     return False
                 # real loss
                 if self.count == retx_thresh:
-                    self.cwnd = 1
+                    self.cwnd = 0
             # success
             else:
-                self.cwnd += 10
+                self.cwnd += 1
             # success or real loss
             # remove ack packets from tx_window
             # restart from unacked packets
